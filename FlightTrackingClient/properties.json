@@ -1,0 +1,10 @@
+{
+    "basePort": 41300,
+    "clientBase": 45000,
+    "METHOD_KEY": {
+        "QUERY_FLIGHT": "QUERY_FLIGHT",
+        "GET_FLIGHT": "GET_FLIGHT",
+        "BOOK_SEAT": "BOOK_SEAT",
+        "REGISTER_FOR_SEAT_UPDATE": "REGISTER_FOR_SEAT_UPDATE"
+    }
+}

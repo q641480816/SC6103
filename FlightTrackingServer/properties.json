@@ -1,0 +1,27 @@
+{
+    "basePort": 41300,
+    "logger": "debug",
+    "redisConfig": {
+        "host": "172.29.53.104",
+        "port": 6379,
+        "maxClients": 4,
+        "minClients": 1,
+        "idleTimeoutMillis": 100000,
+        "acquireTimeoutMillis": 10000
+    },
+    "REDIS_KEY": {
+        "FLIGHT_INFO": "FLIGHT_INFO",
+        "FLIGHT_BOOKING": "FLIGHT_BOOKING",
+        "FROM_TO_MAP": "FLIGHT_FROM_TO_MAP",
+        "REGISTERED_LISTENER": "REGISTERED_LISTENER"
+    },
+    "METHOD_KEY": {
+        "QUERY_FLIGHT": "QUERY_FLIGHT",
+        "GET_FLIGHT": "GET_FLIGHT",
+        "BOOK_SEAT": "BOOK_SEAT",
+        "REGISTER_FOR_SEAT_UPDATE": "REGISTER_FOR_SEAT_UPDATE"
+    },
+    "CLIENT_METHOD_KEY": {
+        "FLIGHT_UPDATE": "FLIGHT_UPDATE"
+    }
+}

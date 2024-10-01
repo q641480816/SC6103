@@ -1,0 +1,99 @@
+const cluster = require('cluster');
+const dgram = require('dgram');
+const logger = require('./logger')(module);
+const properties = require('./properties.json');
+const UTILS = require('./utils');
+const { acquireClient, hSet, hGet, flushdb } = require('./redisService');
+const fligthService = require('./flightService');
+
+const test = () => {
+    return { res: 'OK' };
+}
+
+const initFlight = async () => {
+    try {
+        await flushdb();
+        logger.info("Redis flushed!");
+        const flights = UTILS.generateFlights(20);
+        // console.log(flights);
+        const promises = [];
+        const fromToMap = {};
+        flights.forEach(f => {
+            const fromTo = `${f.from}${f.destination}`;
+            if (!(fromTo in fromToMap)) fromToMap[fromTo] = [];
+            fromToMap[fromTo].push(f.flightIdentifier);
+            promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.FLIGHT_INFO, JSON.stringify(f)));
+            promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.FLIGHT_BOOKING, JSON.stringify({})));
+            promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify([])));
+        })
+        Object.keys(fromToMap)
+            .forEach(ft => promises.push(hSet(properties.REDIS_KEY.FROM_TO_MAP, ft, JSON.stringify(fromToMap[ft]))));
+        const batchRes = await Promise.all(promises);
+
+        const c = await acquireClient();
+        const res = await c.HGETALL(properties.REDIS_KEY.FROM_TO_MAP, Object.keys(fromToMap)[0]);
+        console.log(res);
+        logger.info("Flights info all intialized!");
+    } catch (err) {
+        console.log(err);
+        logger.error("Error in intializing Flights info");
+    }
+}
+
+const processRequest = async (request, callback, server) => {
+    let res;
+    try {
+        if (!request.method || !(request.method in fligthService))
+            throw Error('Invalid method!');
+
+        res = { status: 200, res: await fligthService[request.method](...request.params, server) };
+    } catch (err) {
+        logger.info(`Error occur in proccesing request: ${err.message}`);
+        res = { statue: 503, error: err.message };
+    } finally {
+        callback(res);
+    }
+}
+
+if (cluster.isMaster) {
+    const socketServerMap = {};
+    initFlight();
+
+    for (let i = 0; i < 4; i++) {
+        const port = properties.basePort + i;
+        const worker = cluster.fork({ port: port });
+        logger.debug(`Worker started at ${worker.process.pid}, assiging port ${port}`)
+        socketServerMap[worker.process.pid] = port;
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+        logger.debug(`Worker ${worker.process.pid} died, reviving new worker...`);
+        const port = socketServerMap[worker.process.pid];
+        const newWorker = cluster.fork({ port: port });
+        logger.debug(`Worker started at ${newWorker.process.pid}, assiging port ${port}`)
+        delete socketServerMap[worker.process.pid];
+    });
+} else {
+    const server = dgram.createSocket('udp4');
+    const port = process.env.port;
+
+    server.on('message', (msg, rinfo) => {
+        logger.debug(`Received request from ${rinfo.address}:${rinfo.port} at instance ${port}`);
+        let request = UTILS.unmarshalMessage(msg);
+
+        processRequest(request, (response)=>{
+            UTILS.sendResponse(server, UTILS.marshalMessage(response), rinfo);
+        }, server)
+    });
+
+    server.on('error', (err) => {
+        logger.error(`Server error on port ${port}:`, err);
+        server.close();
+    });
+
+    server.bind({ port: port, exclusive: true }, () => {
+        // server.addMembership('localhost');
+        logger.info(`Server is listening on port ${port}`);
+    });
+}
+

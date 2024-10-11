@@ -52,7 +52,11 @@ const BOOK_SEAT = async (userId, flightId, seatNum, server) => {
             throw Error('Invalid seat number!')
 
         if (userId in flightSeats && parseInt(seatNum) !== flightSeats[userId])
-            throw Error(`User ${userId} has booked seat[${flightSeats[userId]}], can not book again with given seat [${seatNum}]!`);
+            throw Error(`User ${userId} has booked seat[${flightSeats[userId]}], cannot book again with given seat [${seatNum}]!`);
+
+        const unaval = new Set(Object.values(flightSeats));
+        if (!(userId in flightSeats) && unaval.has(parseInt(seatNum)))
+            throw Error(`seat [${seatNum}] has been taken!`);
 
         flightSeats[userId] = parseInt(seatNum);
 
@@ -87,9 +91,9 @@ const REGISTER_FOR_SEAT_UPDATE = async (ip, port, interval, flightId) => {
             timestemp: Date.now()
         })
 
-        await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
-        const test = await hGet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER);
-        console.log(test)
+        // await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
+        // const test = await hGet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER);
+        // console.log(test)
         return 'ok';
     } catch (err) {
         throw err;
@@ -116,7 +120,60 @@ const NOTIFY_MONITORS = async (flightId, server) => {
     } catch (err) {
         logger.error(`Error in broadcasting sear update for ${flightId}`, err);
     }
-
 }
 
-module.exports = { QUERY_FLIGHT, GET_FLIGHT, BOOK_SEAT, REGISTER_FOR_SEAT_UPDATE };
+//Idempotent Operation
+const APPLY_BOARD_ME_FIRST = async (userId, flightId) => {
+    try {
+        if (!userId)
+            throw Error('Missing User Id');
+
+        //check Flight
+        if (!flightId || flightId.length !== 5)
+            throw Error('Invalid Flight Identifier provided!');
+        const flightSeats = JSON.parse(await hGet(flightId, properties.REDIS_KEY.FLIGHT_BOOKING));
+        if (!flightSeats)
+            throw Error(`No matching flight found for ${flightId}!`);
+
+        if (!(userId in flightSeats))
+            throw Error('User has not book this flight yet, cannot apply Board me first');
+
+        const boardMeFirst = JSON.parse(await hGet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST));
+        boardMeFirst[userId] = true;
+        await hSet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST, JSON.stringify(boardMeFirst));
+
+        return 'ok';
+    } catch (err) {
+        throw err;
+    }
+}
+
+//Non-Idemponent Operation
+const PRE_FLIGHT_ORDER = async (userId, flightId, item) => {
+    try {
+        if (!userId)
+            throw Error('Missing User Id');
+
+        //check Flight
+        if (!flightId || flightId.length !== 5)
+            throw Error('Invalid Flight Identifier provided!');
+        const flightSeats = JSON.parse(await hGet(flightId, properties.REDIS_KEY.FLIGHT_BOOKING));
+        if (!flightSeats)
+            throw Error(`No matching flight found for ${flightId}!`);
+
+        if (!(userId in flightSeats))
+            throw Error('User has not book this flight yet, cannot purchase pre-flight orer');
+
+        const preFlightOrder = JSON.parse(await hGet(flightId, properties.REDIS_KEY.PRE_FLIGHT_ORDER));
+        if(!preFlightOrder[userId])
+            preFlightOrder[userId] = [];
+        preFlightOrder[userId].push(item);
+        await hSet(flightId, properties.REDIS_KEY.PRE_FLIGHT_ORDER, JSON.stringify(preFlightOrder));
+
+        return preFlightOrder[userId];
+    } catch (err) {
+        throw err;
+    }
+}
+
+module.exports = { QUERY_FLIGHT, GET_FLIGHT, BOOK_SEAT, REGISTER_FOR_SEAT_UPDATE, APPLY_BOARD_ME_FIRST, PRE_FLIGHT_ORDER};

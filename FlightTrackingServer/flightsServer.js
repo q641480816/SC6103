@@ -25,6 +25,8 @@ const initFlight = async () => {
             promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.FLIGHT_INFO, JSON.stringify(f)));
             promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.FLIGHT_BOOKING, JSON.stringify({})));
             promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify([])));
+            promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.BOARD_ME_FIRST, JSON.stringify({})))
+            promises.push(hSet(f.flightIdentifier, properties.REDIS_KEY.PRE_FLIGHT_ORDER, JSON.stringify({})))
         })
         Object.keys(fromToMap)
             .forEach(ft => promises.push(hSet(properties.REDIS_KEY.FROM_TO_MAP, ft, JSON.stringify(fromToMap[ft]))));
@@ -78,9 +80,11 @@ if (cluster.isMaster) {
     const port = process.env.port;
 
     server.on('message', (msg, rinfo) => {
-        logger.debug(`Received request from ${rinfo.address}:${rinfo.port} at instance ${port}`);
+        logger.info(`Received request from ${rinfo.address}:${rinfo.port} at instance ${port}`);
         let request = UTILS.unmarshalMessage(msg);
 
+        logger.info(`Requesting method: ${request.method}`)
+        logger.info(`Payload: ${JSON.stringify(request.params)}`)
         processRequest(request, (response)=>{
             UTILS.sendResponse(server, UTILS.marshalMessage(response), rinfo);
         }, server)

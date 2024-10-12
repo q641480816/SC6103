@@ -62,7 +62,7 @@ const BOOK_SEAT = async (userId, flightId, seatNum, server) => {
 
         await hSet(flightId, properties.REDIS_KEY.FLIGHT_BOOKING, JSON.stringify(flightSeats));
         NOTIFY_MONITORS(flightId, server);
-        return 'ok';
+        return { [flightId]: { [userId]: seatNum } };
 
     } catch (err) {
         throw err;
@@ -165,7 +165,7 @@ const PRE_FLIGHT_ORDER = async (userId, flightId, item) => {
             throw Error('User has not book this flight yet, cannot purchase pre-flight orer');
 
         const preFlightOrder = JSON.parse(await hGet(flightId, properties.REDIS_KEY.PRE_FLIGHT_ORDER));
-        if(!preFlightOrder[userId])
+        if (!preFlightOrder[userId])
             preFlightOrder[userId] = [];
         preFlightOrder[userId].push(item);
         await hSet(flightId, properties.REDIS_KEY.PRE_FLIGHT_ORDER, JSON.stringify(preFlightOrder));
@@ -176,4 +176,4 @@ const PRE_FLIGHT_ORDER = async (userId, flightId, item) => {
     }
 }
 
-module.exports = { QUERY_FLIGHT, GET_FLIGHT, BOOK_SEAT, REGISTER_FOR_SEAT_UPDATE, APPLY_BOARD_ME_FIRST, PRE_FLIGHT_ORDER};
+module.exports = { QUERY_FLIGHT, GET_FLIGHT, BOOK_SEAT, REGISTER_FOR_SEAT_UPDATE, APPLY_BOARD_ME_FIRST, PRE_FLIGHT_ORDER };

@@ -175,15 +175,15 @@ const testPreFligthOrder = () => {
 //     const worker = cluster.fork();
 //     setTimeout(testBookSeat, 5000);
 // } else {
-//     const client = dgram.createSocket('udp4');
+    const client = dgram.createSocket('udp4');
 
-//     client.bind({ port: properties.clientBase, exclusive: true }, () => {
-//         console.log(`Client bound to port ${properties.clientBase}`);
+    client.bind({ port: properties.clientBase, exclusive: true }, () => {
+        console.log(`Client bound to port ${properties.clientBase}`);
 
-//         // Register for flight monitoring once the client is bound
-//         // registerForFlightMonitoring();
-//         testRegister(client);
-//     });
+        // Register for flight monitoring once the client is bound
+        // registerForFlightMonitoring();
+        testRegister(client);
+    });
 
 //     client.on('message', (msg, rinfo) => {
 //         const message = UTILS.unmarshalMessage(msg);

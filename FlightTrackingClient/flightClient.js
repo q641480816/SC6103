@@ -116,7 +116,38 @@ const runRegisterAndTest = () => {
     })
 }
 
-const methods = [runQueryFlight, runGetFlight, runBookSeat, runRegisterAndTest];
+
+const runApplyBoardMeFirst = () => {
+    return new Promise((resolve, reject) => {
+        // 只显示 User 和 FlightId，不再记录 seatNum
+        console.log(`Requesting Board Me First for User ${userId} on Flight ${flightId}`);
+
+        useClient(properties.METHOD_KEY.APPLY_BOARD_ME_FIRST, [userId, flightId])
+            .then(res => resolve(res))
+            .catch(err => reject(err));
+    });
+};
+
+
+
+
+
+const runPreFlightOrder = () => {
+    return new Promise((resolve, reject) => {
+        rl.question('Enter the item to order: ', (answer) => {
+            const item = answer.trim();
+            console.log(`Ordering ${item} for User ${userId} on Flight ${flightId}`);
+
+            useClient(properties.METHOD_KEY.PRE_FLIGHT_ORDER, [userId, flightId, item])
+                .then(res => resolve(res))
+                .catch(err => reject(err));
+        });
+    });
+};
+
+
+const methods = [runQueryFlight, runGetFlight, runBookSeat, runRegisterAndTest, runApplyBoardMeFirst, runPreFlightOrder];
+
 
 
 const initPrompt = () => {
@@ -136,21 +167,22 @@ Choose a request (1-6):
 2. Query flight details by flight ID
 3. Reserve seats on a flight
 4. Monitor seat availability
-5. (Your idempotent operation)
-6. (Your non-idempotent operation)
+5. Apply for Board Me First (Idempotent)
+6. Pre-Flight Order (Non-Idempotent)
 Enter your option: `, (answer) => {
         const option = parseInt(answer) - 1;
 
         if (isNaN(option)) {
             console.log('Invalid Option!');
-            mainPrompt()
+            mainPrompt();
         } else {
             methods[option]()
                 .then(res => console.log(res))
                 .catch(err => console.log(err))
-                .finally(a => mainPrompt())
+                .finally(() => mainPrompt());
         }
-    })
+    });
 }
+
 
 initPrompt();

@@ -143,7 +143,9 @@ const APPLY_BOARD_ME_FIRST = async (userId, flightId) => {
         boardMeFirst[userId] = true;
         await hSet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST, JSON.stringify(boardMeFirst));
 
-        return 'ok';
+        const res = JSON.stringify(await hGet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST))[userId];
+
+        return res;
     } catch (err) {
         throw err;
     }

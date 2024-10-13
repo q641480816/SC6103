@@ -91,9 +91,9 @@ const REGISTER_FOR_SEAT_UPDATE = async (ip, port, interval, flightId) => {
             timestemp: Date.now()
         })
 
-        // await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
-        // const test = await hGet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER);
-        // console.log(test)
+        await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
+        const test = await hGet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER);
+        console.log(test)
         return 'ok';
     } catch (err) {
         throw err;
@@ -112,8 +112,9 @@ const NOTIFY_MONITORS = async (flightId, server) => {
         const unaval = new Set(Object.values(flightSeats));
         const avaliableSeat = fullSeat.filter(s => !unaval.has(s));
         res.params.push(flightId, avaliableSeat.length, avaliableSeat);
-
+        console.log(flightMonitors);
         const newFlightMonitors = flightMonitors.filter(fm => now <= fm.interval + fm.timestemp);
+        console.log(newFlightMonitors);
         await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
         newFlightMonitors.forEach(fm => UTILS.sendResponse(server, UTILS.marshalMessage(res), { address: fm.ip, port: fm.port }));
         logger.info(`${flightId} seat update has been broadcasted!`);

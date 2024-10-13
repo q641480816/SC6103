@@ -12,12 +12,12 @@ let flightId, userId;
 
 let flightList;
 
-const useClient = (method, params) => {
+const useClient = (method, params, port) => {
     return new Promise((resolve, reject) => {
         const client = dgram.createSocket('udp4');
         const req = UTILS.marshalMessage({ method: method, params: params });
 
-        client.send(req, properties.basePort, 'localhost', (err) => {
+        client.send(req, port || properties.basePort, 'localhost', (err) => {
             if (err) {
                 reject(err);
                 client.close();
@@ -76,82 +76,23 @@ const runBookSeat = () => {
     })
 }
 
-const creatClient = (port) => {
-    const timeout = 20000;
-    return new Promise((resolve, reject) => {
-        const client = dgram.createSocket('udp4');
-
-        client.bind({ port: port, exclusive: true }, () => {
-            console.log(`Client bound to port ${port}`);
-            resolve(client);
-        });
-
-        const req = UTILS.marshalMessage({
-            method: properties.METHOD_KEY.REGISTER_FOR_SEAT_UPDATE,
-            params: ['localhost', port, timeout, flightId]
-        });
-        client.send(req, properties.basePort, 'localhost', (err) => {
-            if (err) {
-                console.error('Error sending request:', err);
-                client.close();
-                reject('Failed to create client');
-            } else {
-                client.once('message', (msg) => {
-                    const response = UTILS.unmarshalMessage(msg);
-                    if (response.error) console.log(`Error: ${response.error}`)
-                    if (response.res) console.log(`Res: Server has registered client at ${port} `)
-                    // client.close();
-                });
-            }
-        });
-
-        client.on('message', (msg, rinfo) => {
-            const message = UTILS.unmarshalMessage(msg);
-            console.log('Test')
-            console.log(msg)
-            if (message.method === properties.METHOD_KEY.FLIGHT_UPDATE) {
-                const update = message.params;
-                console.log(`Update received: Flight ${update.flightIdentifier}, Seats Available: ${update.seatsAvailable}`);
-                client.close();
-            }
-        });
-
-        client.on('error', (err) => {
-            console.error(`UDP error: ${err}`);
-            client.close();
-            reject('Failed running client');
-        });
-
-        setTimeout(() => {
-            try {
-                client.close()
-            } catch (err) { }
-        }, timeout);
-    })
-}
-
 const runRegisterAndTest = () => {
     return new Promise((resolve, reject) => {
-        const timeout = 20000;
-
-        //creating UDP client
-        console.log(`Creating client for Monitor, listen to ${flightId}`)
-        creatClient(properties.clientBase)
-            .then((clients) => {
-                console.log(`Sending Book seat in 5 Seconds: [${userId}, ${flightId}, 35]`);
-
-                setTimeout(() => {
-                    useClient(properties.METHOD_KEY.BOOK_SEAT, [userId, flightId, 35])
-                        .then(res => {
-                            console.log(`Server res: ${res}`);
-                            console.log('Test complete: Terminating in 2 sec...');
-
-                            setTimeout(() => resolve(), 2000);
-                        })
-                        .catch(err => reject(err));
-                }, 5000)
+        useClient("REGISTOR", [flightId], properties.clientBase)
+            .then(res => {
+                console.log(res)
+                return useClient("REGISTOR", [flightId], properties.clientBase + 1);
             })
-            .catch(err => reject(err));
+            .then(res => {
+                console.log(res);
+                return useClient("REGISTOR", [flightList[1]], properties.clientBase + 2);
+            }).then(res => {
+                console.log(res)
+                resolve(res);
+            })
+            .catch(err => {
+                reject(err)
+                console.log(err)});
     })
 }
 

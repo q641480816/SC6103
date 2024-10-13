@@ -49,10 +49,7 @@ const processRequest = async (request, callback, server) => {
             throw Error('Invalid method!');
 
         //at most once
-        const exist = await hExists(properties.REDIS_KEY.REQUEST_MAP, request.id);
-        console.log(exist)
-        console.log(request.id)
-        if (request.mode === 0 && exist) {
+        if (request.mode === 0 && await hExists(properties.REDIS_KEY.REQUEST_MAP, request.id)) {
             res = { status: 200, res: 'Duplicated request'}
         } else {
             res = { status: 200, res: await fligthService[request.method](...request.params, server) };

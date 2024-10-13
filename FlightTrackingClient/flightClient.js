@@ -12,26 +12,46 @@ let flightId, userId;
 
 let flightList;
 
-const useClient = (method, params, port) => {
+let uniqueCounter = 0;
+
+const useClient = (method, params, port, timeout = 1000, maxRetries = 3) => {
     return new Promise((resolve, reject) => {
         const client = dgram.createSocket('udp4');
-        const req = UTILS.marshalMessage({ method: method, params: params });
+        uniqueCounter ++;
+        const req = UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}` });
+        let retries = 0;
 
-        client.send(req, port || properties.basePort, 'localhost', (err) => {
-            if (err) {
-                reject(err);
-                client.close();
-            } else {
-                client.once('message', (msg) => {
-                    const response = UTILS.unmarshalMessage(msg);
-                    if (response.error) reject(response.error);
-                    if (response.res) resolve(response.res)
+        const sendRequest = () => {
+            client.send(req, port || properties.basePort, 'localhost', (err) => {
+                if (err) {
+                    reject(err);
                     client.close();
-                });
-            }
-        });
-    })
-}
+                } else {
+                    const responseTimeout = setTimeout(() => {
+                        if (retries < maxRetries) {
+                            console.log(`Retrying... Attempt ${retries + 1} of ${maxRetries}`);
+                            retries++;
+                            sendRequest();
+                        } else {
+                            reject(new Error('No response from server, max retries reached.'));
+                            client.close();
+                        }
+                    }, timeout);
+
+                    client.once('message', (msg) => {
+                        clearTimeout(responseTimeout);  
+                        const response = UTILS.unmarshalMessage(msg);
+                        if (response.error) reject(response.error);
+                        else resolve(response.res);
+                        client.close();
+                    });
+                }
+            });
+        };
+
+        sendRequest();  
+    });
+};
 
 const runQueryFlight = () => {
     return new Promise((resolve, reject) => {

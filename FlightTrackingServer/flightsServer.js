@@ -3,7 +3,7 @@ const dgram = require('dgram');
 const logger = require('./logger')(module);
 const properties = require('./properties.json');
 const UTILS = require('./utils');
-const { acquireClient, hSet, hGet, flushdb } = require('./redisService');
+const { acquireClient, hSet, hGet, flushdb, hExists } = require('./redisService');
 const fligthService = require('./flightService');
 
 const test = () => {
@@ -48,11 +48,23 @@ const processRequest = async (request, callback, server) => {
         if (!request.method || !(request.method in fligthService))
             throw Error('Invalid method!');
 
-        res = { status: 200, res: await fligthService[request.method](...request.params, server) };
+        //at most once
+        const exist = await hExists(properties.REDIS_KEY.REQUEST_MAP, request.id);
+        console.log(exist)
+        console.log(request.id)
+        if (request.mode === 0 && exist) {
+            res = { status: 200, res: 'Duplicated request'}
+        } else {
+            res = { status: 200, res: await fligthService[request.method](...request.params, server) };
+
+            await hSet(properties.REDIS_KEY.REQUEST_MAP, request.id, '1');
+        }
+
     } catch (err) {
         logger.info(`Error occur in proccesing request: ${err.message}`);
         res = { statue: 503, error: err.message };
     } finally {
+        console.log(res);
         callback(res);
     }
 }
@@ -85,7 +97,7 @@ if (cluster.isMaster) {
 
         logger.info(`Requesting method: ${request.method}`)
         logger.info(`Payload: ${JSON.stringify(request.params)}`)
-        processRequest(request, (response)=>{
+        processRequest(request, (response) => {
             UTILS.sendResponse(server, UTILS.marshalMessage(response), rinfo);
         }, server)
     });

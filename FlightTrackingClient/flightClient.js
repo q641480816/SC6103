@@ -14,20 +14,29 @@ let flightList;
 
 let uniqueCounter = 0;
 
-const useClient = (method, params, port, timeout = 1000, maxRetries = 3) => {
+const useClient = (method, params, mode = 0, test = false, timeout = 3000, maxRetries = 3) => {
     return new Promise((resolve, reject) => {
         const client = dgram.createSocket('udp4');
-        uniqueCounter ++;
-        const req = UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}` });
+        uniqueCounter++;
+        const req = UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}`, mode: mode, test: test });
         let retries = 0;
+        let responseTimeout;
 
+        /*
+            when test === false: req
+            when test === true
+            if !test: do not simulate packet lost
+            else: Simulate the packet lost in first few tries and do not simulate at the last retry 
+        */
         const sendRequest = () => {
-            client.send(req, port || properties.basePort, 'localhost', (err) => {
+            const request = !test || (test && retries <= maxRetries - 1) ? req :
+                UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}`, mode: mode, test: false });
+            client.send(request, properties.basePort, 'localhost', (err) => {
                 if (err) {
                     reject(err);
                     client.close();
                 } else {
-                    const responseTimeout = setTimeout(() => {
+                    responseTimeout = setTimeout(() => {
                         if (retries < maxRetries) {
                             console.log(`Retrying... Attempt ${retries + 1} of ${maxRetries}`);
                             retries++;
@@ -38,18 +47,24 @@ const useClient = (method, params, port, timeout = 1000, maxRetries = 3) => {
                         }
                     }, timeout);
 
-                    client.once('message', (msg) => {
-                        clearTimeout(responseTimeout);  
-                        const response = UTILS.unmarshalMessage(msg);
-                        if (response.error) reject(response.error);
-                        else resolve(response.res);
-                        client.close();
-                    });
+                    if (retries === 0) {
+                        client.once('message', (msg) => {
+                            if (responseTimeout) {
+                                clearTimeout(responseTimeout);
+                            }
+                            const response = UTILS.unmarshalMessage(msg);
+                            if (response.error) reject(response.error);
+                            else resolve(response.res);
+                            try {
+                                client.close();
+                            } catch (err) { }
+                        });
+                    }
                 }
             });
         };
 
-        sendRequest();  
+        sendRequest();
     });
 };
 
@@ -112,33 +127,30 @@ const runRegisterAndTest = () => {
             })
             .catch(err => {
                 reject(err)
-                console.log(err)});
+                console.log(err)
+            });
     })
 }
 
 
-const runApplyBoardMeFirst = () => {
+const runApplyBoardMeFirst = (mode = 0, test = false) => {
     return new Promise((resolve, reject) => {
         // 只显示 User 和 FlightId，不再记录 seatNum
         console.log(`Requesting Board Me First for User ${userId} on Flight ${flightId}`);
 
-        useClient(properties.METHOD_KEY.APPLY_BOARD_ME_FIRST, [userId, flightId])
+        useClient(properties.METHOD_KEY.APPLY_BOARD_ME_FIRST, [userId, flightId], mode, test)
             .then(res => resolve(res))
             .catch(err => reject(err));
     });
 };
 
-
-
-
-
-const runPreFlightOrder = () => {
+const runPreFlightOrder = (mode = 0, test = false) => {
     return new Promise((resolve, reject) => {
         rl.question('Enter the item to order: ', (answer) => {
             const item = answer.trim();
             console.log(`Ordering ${item} for User ${userId} on Flight ${flightId}`);
 
-            useClient(properties.METHOD_KEY.PRE_FLIGHT_ORDER, [userId, flightId, item])
+            useClient(properties.METHOD_KEY.PRE_FLIGHT_ORDER, [userId, flightId, item], mode, test)
                 .then(res => resolve(res))
                 .catch(err => reject(err));
         });
@@ -167,8 +179,11 @@ Choose a request (1-6):
 2. Query flight details by flight ID
 3. Reserve seats on a flight
 4. Monitor seat availability
-5. Apply for Board Me First (Idempotent)
-6. Pre-Flight Order (Non-Idempotent)
+5. Apply for Board Me First (Idempotent, at most once)
+6. Pre-Flight Order (Non-Idempotent, at most once)
+7. Pre-Flight Order (Non-Idempotent, at most once, simulate packet lost)
+8. Apply for Board Me First (Idempotent, at least once, simulate packet lost)
+9. Pre-Flight Order (Non-Idempotent, at least once, simulate packet lost)
 Enter your option: `, (answer) => {
         const option = parseInt(answer) - 1;
 
@@ -176,10 +191,30 @@ Enter your option: `, (answer) => {
             console.log('Invalid Option!');
             mainPrompt();
         } else {
-            methods[option]()
-                .then(res => console.log(res))
-                .catch(err => console.log(err))
-                .finally(() => mainPrompt());
+            if (option < 6) {
+                methods[option]()
+                    .then(res => console.log(res))
+                    .catch(err => console.log(err))
+                    .finally(() => mainPrompt());
+            } else {
+                let method;
+                switch (option) {
+                    case 6:
+                        method = methods[5](0, true)
+                        break;
+                    case 7:
+                        method = methods[4](1, true)
+                        break;
+                    case 8:
+                        method = methods[5](1, true)
+                        break;
+                }
+
+                method
+                    .then(res => console.log(res))
+                    .catch(err => console.log(err))
+                    .finally(() => mainPrompt());
+            }
         }
     });
 }

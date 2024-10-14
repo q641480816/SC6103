@@ -50,7 +50,7 @@ const processRequest = async (request, callback, server) => {
 
         //at most once
         if (request.mode === 0 && await hExists(properties.REDIS_KEY.REQUEST_MAP, request.id)) {
-            res = { status: 200, res: 'Duplicated request'}
+            res = { status: 200, res: 'Duplicated request' }
         } else {
             res = { status: 200, res: await fligthService[request.method](...request.params, server) };
 
@@ -62,7 +62,9 @@ const processRequest = async (request, callback, server) => {
         res = { statue: 503, error: err.message };
     } finally {
         console.log(res);
-        callback(res);
+        if (request.test) {
+            logger.debug('Simulating packet lost: Skipping rending response...');
+        } else callback(res);
     }
 }
 

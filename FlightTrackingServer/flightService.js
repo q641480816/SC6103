@@ -112,9 +112,7 @@ const NOTIFY_MONITORS = async (flightId, server) => {
         const unaval = new Set(Object.values(flightSeats));
         const avaliableSeat = fullSeat.filter(s => !unaval.has(s));
         res.params.push(flightId, avaliableSeat.length, avaliableSeat);
-        console.log(flightMonitors);
         const newFlightMonitors = flightMonitors.filter(fm => now <= fm.interval + fm.timestemp);
-        console.log(newFlightMonitors);
         await hSet(flightId, properties.REDIS_KEY.REGISTERED_LISTENER, JSON.stringify(flightMonitors));
         newFlightMonitors.forEach(fm => UTILS.sendResponse(server, UTILS.marshalMessage(res), { address: fm.ip, port: fm.port }));
         logger.info(`${flightId} seat update has been broadcasted!`);
@@ -143,9 +141,12 @@ const APPLY_BOARD_ME_FIRST = async (userId, flightId) => {
         boardMeFirst[userId] = true;
         await hSet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST, JSON.stringify(boardMeFirst));
 
-        const res = JSON.stringify(await hGet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST))[userId];
+        const t = await hGet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST);
+        console.log(t);
 
-        return res;
+        const res = JSON.parse(await hGet(flightId, properties.REDIS_KEY.BOARD_ME_FIRST))[userId];
+
+        return { [flightId]: { [userId]: res } }
     } catch (err) {
         throw err;
     }
@@ -173,7 +174,7 @@ const PRE_FLIGHT_ORDER = async (userId, flightId, item) => {
         preFlightOrder[userId].push(item);
         await hSet(flightId, properties.REDIS_KEY.PRE_FLIGHT_ORDER, JSON.stringify(preFlightOrder));
 
-        return preFlightOrder[userId];
+        return { [flightId]: { [userId]: preFlightOrder[userId] } };
     } catch (err) {
         throw err;
     }

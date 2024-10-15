@@ -14,7 +14,7 @@ let flightList;
 
 let uniqueCounter = 0;
 
-const useClient = (method, params, mode = 0, test = false, timeout = 3000, maxRetries = 3) => {
+const useClient = (method, params, mode = 0, test = false, timeout = 3000, maxRetries = 3, ip = properties.serverIP, port = properties.lbPort) => {
     return new Promise((resolve, reject) => {
         const client = dgram.createSocket('udp4');
         uniqueCounter++;
@@ -31,7 +31,7 @@ const useClient = (method, params, mode = 0, test = false, timeout = 3000, maxRe
         const sendRequest = () => {
             const request = !test || (test && retries <= maxRetries - 1) ? req :
                 UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}`, mode: mode, test: false });
-            client.send(request, properties.lbPort, 'localhost', (err) => {
+            client.send(request, port, ip, (err) => {
                 if (err) {
                     reject(err);
                     client.close();
@@ -113,14 +113,14 @@ const runBookSeat = () => {
 
 const runRegisterAndTest = () => {
     return new Promise((resolve, reject) => {
-        useClient("REGISTOR", [flightId], properties.clientBase)
+        useClient("REGISTOR", [flightId], 1, undefined, undefined, undefined, 'localhost', properties.clientBase)
             .then(res => {
                 console.log(res)
-                return useClient("REGISTOR", [flightId], properties.clientBase + 1);
+                return useClient("REGISTOR", [flightId], 1, undefined, undefined, undefined, 'localhost', properties.clientBase + 1);
             })
             .then(res => {
                 console.log(res);
-                return useClient("REGISTOR", [flightList[1]], properties.clientBase + 2);
+                return useClient("REGISTOR", [flightList[1]], 1, undefined, undefined, undefined, 'localhost', properties.clientBase + 2);
             }).then(res => {
                 console.log(res)
                 resolve(res);

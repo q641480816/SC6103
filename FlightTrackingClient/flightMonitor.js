@@ -3,6 +3,21 @@ const cluster = require('cluster');
 // const client = dgram.createSocket('udp4');
 const UTILS = require('./utils');
 const properties = require('./properties.json');
+const os = require('os');
+const networkInterfaces = os.networkInterfaces();
+let ipAddress = null;
+
+for (const interfaceName in networkInterfaces) {
+  const interfaces = networkInterfaces[interfaceName];
+  
+  for (const iface of interfaces) {
+    if (iface.family === 'IPv4' && !iface.internal) {
+      ipAddress = iface.address;
+      break;
+    }
+  }
+  if (ipAddress) break;
+}
 
 if (cluster.isMaster) {
     const socketServerMap = {};
@@ -26,9 +41,11 @@ if (cluster.isMaster) {
             console.log(`Payload: ${JSON.stringify(request.params)}`)
             const req = UTILS.marshalMessage({
                 method: properties.METHOD_KEY.REGISTER_FOR_SEAT_UPDATE,
-                params: ['localhost', port, 60000, request.params[0]]
+                params: [ipAddress, port, 60000, request.params[0]],
+                id: `${port}${process.id}REGISTOR${request.params[0]}`
             });
-            server.send(req, properties.basePort, 'localhost', (err) => {
+            UTILS.sendResponse(server, UTILS.marshalMessage({res: 'ok'}), rinfo);
+            server.send(req, properties.lbPort, properties.serverIP, (err) => {
                 if (err) {
                     console.error('Error sending request:', err);
                     server.close();

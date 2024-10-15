@@ -11,5 +11,6 @@
         "FLIGHT_UPDATE": "FLIGHT_UPDATE"
     },
     "CHICKEN_RICE": "Chicken Rice",
-    "lbPort": 41234
+    "lbPort": 41234,
+    "serverIP": "192.168.50.226"
 }

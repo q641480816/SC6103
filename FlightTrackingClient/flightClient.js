@@ -31,7 +31,7 @@ const useClient = (method, params, mode = 0, test = false, timeout = 3000, maxRe
         const sendRequest = () => {
             const request = !test || (test && retries <= maxRetries - 1) ? req :
                 UTILS.marshalMessage({ method: method, params: params, id: `${userId}${method}${uniqueCounter}`, mode: mode, test: false });
-            client.send(request, properties.basePort, 'localhost', (err) => {
+            client.send(request, properties.lbPort, 'localhost', (err) => {
                 if (err) {
                     reject(err);
                     client.close();

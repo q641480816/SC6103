@@ -10,5 +10,6 @@
         "PRE_FLIGHT_ORDER": "PRE_FLIGHT_ORDER",
         "FLIGHT_UPDATE": "FLIGHT_UPDATE"
     },
-    "CHICKEN_RICE": "Chicken Rice"
+    "CHICKEN_RICE": "Chicken Rice",
+    "lbPort": 41234
 }

@@ -29,5 +29,6 @@
     "CLIENT_METHOD_KEY": {
         "FLIGHT_UPDATE": "FLIGHT_UPDATE"
     },
-    "CHICKEN_RICE": "Chicken Rice"
+    "CHICKEN_RICE": "Chicken Rice",
+    "lbPort": 41234
 }

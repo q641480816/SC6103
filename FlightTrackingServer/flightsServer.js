@@ -93,12 +93,15 @@ if (cluster.isMaster) {
     server.on('message', (msg, rinfo) => {
         logger.info(`Received request from ${rinfo.address}:${rinfo.port} at instance ${port}`);
         let request = UTILS.unmarshalMessage(msg);
-
-        logger.info(`Requesting method: ${request.method}`)
-        logger.info(`Payload: ${JSON.stringify(request.params)}`)
-        processRequest(request, (response) => {
-            UTILS.sendResponse(server, UTILS.marshalMessage(response), rinfo);
-        }, server)
+        if(request.method === 'ping'){
+            UTILS.sendResponse(server, UTILS.marshalMessage({res: 'pong'}), rinfo);
+        }else{
+            logger.info(`Requesting method: ${request.method}`)
+            logger.info(`Payload: ${JSON.stringify(request.params)}`)
+            processRequest(request, (response) => {
+                UTILS.sendResponse(server, UTILS.marshalMessage(response), rinfo);
+            }, server)
+        }
     });
 
     server.on('error', (err) => {
